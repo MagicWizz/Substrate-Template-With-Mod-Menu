@@ -1,26 +1,31 @@
 package com.dark.force;
 
+import android.animation.ArgbEvaluator;
+import android.animation.TimeAnimator;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.Typeface;
+import android.graphics.LinearGradient;
+import android.graphics.PorterDuff;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
-import android.media.Image;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.text.Html;
-import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckedTextView;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -36,6 +41,8 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 public class MenuService extends Service {
@@ -44,10 +51,12 @@ public class MenuService extends Service {
     public View mFloatingView;
     private LinearLayout modBody;
     private WindowManager windowManager;
+    private RelativeLayout relativeLayoutImage;
     private ImageView imageView;
     public IBinder onBind(Intent intent) {
         return null;
     }
+    private static GradientDrawable gd = new GradientDrawable();
 
     //Override our Start Command so the Service doesnt try to recreate itself when the App is closed
     @Override
@@ -74,7 +83,7 @@ public class MenuService extends Service {
         if (mFloatingView != null)
             windowManager.removeView(mFloatingView);
         if(imageView != null)
-            windowManager.removeView(imageView);
+            relativeLayoutImage.removeView(imageView);
         Toast.makeText(getBaseContext(), "MenuService Stopped", Toast.LENGTH_SHORT).show();
     }
 
@@ -82,12 +91,12 @@ public class MenuService extends Service {
     //When this Class is called the code in this function will be executed
     public void onCreate() {
         super.onCreate();
-        //A little message for the user when he opens the app
-        Toast.makeText(this, "Happy Modding!", Toast.LENGTH_LONG).show();
         //Init Lib
-        NativeLibrary.init();
+        NativeLibrary.init(this);
         //Create our Menu
         CreateMenu();
+        //Start the Gradient Animation
+        startAnimation();
         //Create a handler for this Class
         final Handler handler = new Handler();
         handler.post(new Runnable() {
@@ -109,20 +118,20 @@ public class MenuService extends Service {
         frameLayout.setLayoutParams(new FrameLayout.LayoutParams(-2, -2));
 
         //The Button layout so we can open and close the Mod Menu
-        RelativeLayout relativeLayout = new RelativeLayout(this); //Floatin Button
-        relativeLayout.setLayoutParams(new RelativeLayout.LayoutParams(-1, -1));
+        relativeLayoutImage = new RelativeLayout(this); //Floatin Button
+        relativeLayoutImage.setLayoutParams(new RelativeLayout.LayoutParams(-1, -1));
 
         //Our ImageView handler which will be used for our Open/Closed button
         imageView = new ImageView(this);
-        imageView.setLayoutParams(new RelativeLayout.LayoutParams(convertDipToPixels(50.0f), convertDipToPixels(50.0f)));
+        imageView.setLayoutParams(new RelativeLayout.LayoutParams(convertDipToPixels(75.0f), convertDipToPixels(75.0f)));
 
         try {
-            //Load Image (wolve.png is the Image I use. If your button image has another name change it here)
-            InputStream open = getAssets().open("wolve.png");
+            //Load Image (PiinLogoRed.png is the Image I use. If your button image has another name change it here)
+            InputStream open = getAssets().open("PiinLogoRed.png");
             imageView.setImageDrawable(Drawable.createFromStream(open, null));
             open.close();
-            relativeLayout.addView(imageView);
-            this.mFloatingView = relativeLayout;
+            relativeLayoutImage.addView(imageView);
+            this.mFloatingView = relativeLayoutImage;
 
             //Main UI (Our background Image for the menu. Again change the name if your background name IMage has another name)
             //InputStream open2 = getAssets().open("ghwallpaper.jpg");
@@ -130,30 +139,39 @@ public class MenuService extends Service {
             linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
             //linearLayout.setBackground(Drawable.createFromStream(open2, null)); //if you wanna use the Image instead
             linearLayout.setBackgroundColor(Color.parseColor("#14171f"));
+            //linearLayout.setBackground(gd);
             linearLayout.setOrientation(LinearLayout.VERTICAL);
 
             //Head Text (Creates a Header text. Credit yourself, and me ples)
-            TextView textView = new TextView(this);
-            textView.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-            textView.setGravity(1);
-            textView.setText(Html.fromHtml("Mod by Octo"));
-            textView.setTextSize(20.0f);
-            textView.setTextColor(Color.parseColor("#93a6ae"));
+            TextView modHeading = new TextView(this);
+            int start = Color.parseColor("#009FFF");
+            int end = Color.parseColor("#ec2F4B");
+            Shader shader = new LinearGradient(0, 0, 40, modHeading.getLineHeight(),
+                    start, end, Shader.TileMode.MIRROR);
+            modHeading.getPaint().setShader(shader);
+            modHeading.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+            modHeading.setGravity(1);
+            modHeading.setText(Html.fromHtml("Mod by Octo"));
+            //textView.startAnimation(AnimationUtils.loadAnimation(this, android.R.anim.fade_in));
+            modHeading.setTextSize(20.0f);
+            //textView.setTextColor(Color.parseColor("#93a6ae"));
 
-            TextView textView2 = new TextView(this);
-            textView2.setLayoutParams(new LinearLayout.LayoutParams(-2, convertDipToPixels(25.0f)));
-            LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) textView2.getLayoutParams();
+            TextView modSubHeading = new TextView(this);
+            modSubHeading.setLayoutParams(new LinearLayout.LayoutParams(-2, convertDipToPixels(25.0f)));
+            LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) modSubHeading.getLayoutParams();
             layoutParams.gravity = 17;
             layoutParams.bottomMargin = 10;
-            textView2.setTextSize(15.0f);
-            textView2.setText(Html.fromHtml("Fuck"));
-            textView2.setTextColor(Color.parseColor("#93a6ae"));
+            modSubHeading.setTextSize(15.0f);
+            modSubHeading.setText(Html.fromHtml("Fuck"));
+            modSubHeading.setTextColor(Color.parseColor("#93a6ae"));
 
             //Scrollview for Toggles and Main Body
             ScrollView scrollView = new ScrollView(this);
             scrollView.setLayoutParams(new LinearLayout.LayoutParams(-1, convertDipToPixels(260.0f)));
             scrollView.setScrollBarSize(convertDipToPixels(5.0f));
-            scrollView.setBackgroundColor(Color.parseColor("#181c25"));
+            //scrollView.setBackgroundColor(Color.parseColor("#181c25"));
+            scrollView.setBackground(gd);
+
             this.modBody = new LinearLayout(this);
             this.modBody.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
             this.modBody.setOrientation(LinearLayout.VERTICAL);
@@ -176,6 +194,8 @@ public class MenuService extends Service {
                     addSpinner(split[1], spinnerList, new Spinner.OnItemSelectedListener(){
                         @Override
                         public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                            ((TextView) adapterView.getChildAt(0)).setTextColor(Color.parseColor("#93a6ae"));
+                            ((TextView) adapterView.getChildAt(0)).setPadding(1,1,1,1);
                             NativeLibrary.changeSpinner(l2, spinnerList[i]);
                         }
                         @Override
@@ -197,17 +217,6 @@ public class MenuService extends Service {
 
             }
 
-            addButton("Test", new CompoundButton.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if(true){
-                        Toast.makeText(MenuService.this, "Dropped AK47", Toast.LENGTH_SHORT).show();
-                    }else{
-                        Toast.makeText(MenuService.this, "Couldn't throw weapon", Toast.LENGTH_SHORT).show();
-                    }
-                }
-            });
-
 
             //Add Body to ScrollView
             scrollView.addView(this.modBody);
@@ -216,23 +225,26 @@ public class MenuService extends Service {
             relativeLayout2.setLayoutParams(new RelativeLayout.LayoutParams(-2, -1));
             relativeLayout2.setPadding(10, 10, 10, 10);
             relativeLayout2.setVerticalGravity(16);
-            Button button = new Button(this);
-            button.setBackgroundColor(Color.parseColor("#14171f"));
-            button.setText("Hide");
-            button.setTextColor(Color.parseColor("#93a6ae"));
+
+            Button hideButton = new Button(this);
+            hideButton.setBackgroundColor(Color.parseColor("#14171f"));
+            hideButton.setText("Hide");
+            hideButton.setTextColor(Color.parseColor("#93a6ae"));
+
             RelativeLayout.LayoutParams layoutParams2 = new RelativeLayout.LayoutParams(-2, -2);
             layoutParams2.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-            button.setLayoutParams(layoutParams2);
-            Button button2 = new Button(this);
-            button2.setBackgroundColor(Color.parseColor("#14171f"));
-            button2.setText("Kill");
-            button2.setTextColor(Color.parseColor("#93a6ae"));
-            relativeLayout2.addView(button);
-            relativeLayout2.addView(button2);
+            hideButton.setLayoutParams(layoutParams2);
+
+            Button killButton = new Button(this);
+            killButton.setBackgroundColor(Color.parseColor("#14171f"));
+            killButton.setText("Kill");
+            killButton.setTextColor(Color.parseColor("#93a6ae"));
+            relativeLayout2.addView(hideButton);
+            relativeLayout2.addView(killButton);
 
             //Add Everything to LinearLayout
-            linearLayout.addView(textView);
-            linearLayout.addView(textView2);
+            linearLayout.addView(modHeading);
+            linearLayout.addView(modSubHeading);
             linearLayout.addView(scrollView);
             linearLayout.addView(relativeLayout2);
             frameLayout.addView(linearLayout);
@@ -286,13 +298,13 @@ public class MenuService extends Service {
                     }
                 }
             });
-            button.setOnClickListener(new View.OnClickListener() {
+            hideButton.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View view) {
                     create.hide();
                     imageView.setVisibility(View.VISIBLE);
                 }
             });
-            button2.setOnClickListener(new View.OnClickListener() {
+            killButton.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View view) {
                     create.hide();
                     MenuService.this.stopSelf();
@@ -389,16 +401,33 @@ public class MenuService extends Service {
         textView.setText(str);
         textView.setTextSize(12.0f);
         textView.setTextColor(Color.parseColor("#93a6ae"));
-        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-        textView.setLayoutParams(layoutParams);
+
+        LinearLayout linearLayout = new LinearLayout(this);
+        linearLayout.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
+        linearLayout.setPadding(10, 5, 10, 5);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        linearLayout.setGravity(17);
+
         Spinner spinner = new Spinner(this);
-        spinner.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
-        ArrayAdapter<String> spinnerArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, strArr);
-        spinnerArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(spinnerArrayAdapter);
+        LinearLayout linearLayout2 = new LinearLayout(this);
+        linearLayout2.setLayoutParams(new LinearLayout.LayoutParams(-1, -1));
+        linearLayout2.setOrientation(LinearLayout.VERTICAL);
+        spinner.setLayoutParams(linearLayout2.getLayoutParams());
+        spinner.getBackground().setColorFilter(1, PorterDuff.Mode.SRC_ATOP);
+
+        CustomSpinnerAdapter adapter = new CustomSpinnerAdapter(
+                this,
+                android.R.layout.simple_spinner_item,
+                Arrays.asList(strArr)
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
         spinner.setOnItemSelectedListener(onItemSelectedListener);
-        this.modBody.addView(textView);
-        this.modBody.addView(spinner);
+
+        linearLayout.addView(textView);
+        linearLayout2.addView(spinner);
+        this.modBody.addView(linearLayout);
+        this.modBody.addView(linearLayout2);
     }
 
     private void addTextField(String str, String hint, final int id){
@@ -406,6 +435,7 @@ public class MenuService extends Service {
         relativeLayout2.setLayoutParams(new RelativeLayout.LayoutParams(-2, -1));
         relativeLayout2.setPadding(10, 10, 10, 10);
         relativeLayout2.setVerticalGravity(16);
+
         final EditText editText = new EditText(this);
         editText.setHint(hint);
         editText.setMaxLines(1);
@@ -417,6 +447,7 @@ public class MenuService extends Service {
         //Makes sense xDD
         RelativeLayout.LayoutParams layoutParams2 = new RelativeLayout.LayoutParams(-2, -2);
         layoutParams2.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+
         Button button2 = new Button(this);
         button2.setLayoutParams(layoutParams2);
         button2.setBackgroundColor(Color.parseColor("#14171f"));
@@ -471,7 +502,57 @@ public class MenuService extends Service {
         }
     }
 
+    public static void startAnimation() {
+        final int start = Color.parseColor("#c31432");
+        final int end = Color.parseColor("#240b36");
+
+        final ArgbEvaluator evaluator = new ArgbEvaluator();
+        gd.setCornerRadius(0f);
+        gd.setOrientation(GradientDrawable.Orientation.TL_BR);
+        final GradientDrawable gradient = gd;
+
+        ValueAnimator animator = TimeAnimator.ofFloat(0.0f, 1.0f);
+        animator.setDuration(3000);
+        animator.setRepeatCount(ValueAnimator.INFINITE);
+        animator.setRepeatMode(ValueAnimator.REVERSE);
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                Float fraction = valueAnimator.getAnimatedFraction();
+                int newStrat = (int) evaluator.evaluate(fraction, start, end);
+                int newEnd = (int) evaluator.evaluate(fraction, end, start);
+                int[] newArray = {newStrat, newEnd};
+                gradient.setColors(newArray);
+            }
+        });
+
+        animator.start();
+    }
+
+
     private interface SeekbarInterface {
         void OnWrite(int i);
+    }
+
+    private static class CustomSpinnerAdapter extends ArrayAdapter<String> {
+        private CustomSpinnerAdapter(Context context, int resource, List<String> items) {
+            super(context, resource, items);
+        }
+
+        // Affects default (closed) state of the spinner
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            TextView view = (TextView) super.getView(position, convertView, parent);
+            return view;
+        }
+
+        // Affects opened state of the spinner
+        @Override
+        public View getDropDownView(int position, View convertView, ViewGroup parent) {
+            TextView view = (TextView) super.getDropDownView(position, convertView, parent);
+            view.setTextColor(Color.parseColor("#93a6ae"));
+            view.setBackgroundColor(Color.parseColor("#14171f"));
+            return view;
+        }
     }
 }
